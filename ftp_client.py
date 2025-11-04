@@ -46,6 +46,9 @@ def open_connection(hostname):
         print("Enter username to authenticate")
         username = input("Username: ")
         authenticate(username, "")
+    
+def authenticate(username, password):
+    status_code = ftp_command(command_sock, f"USER {username}")
     if status_code == 331:
         print("Username accepted, enter password")
         password = input("Password: ")
@@ -56,12 +59,21 @@ def open_connection(hostname):
         print("Error in connection or authentication")
     else:
         print("Unknown response from server")
-    
-def authenticate(username, password):
-    status_code = ftp_command(command_sock, f"USER {username}")
+
     status_code = ftp_command(command_sock, f"PASS {password}")
+    if (status_code == 421 | status_code == 500 | status_code == 501 | status_code == 530):
+        print("Error in connection or authentication")
+    else:
+        print("Unknown response from server")
+
 def list_directory():
-    status_code = ftp_command(command_sock, "LIST")
+    open_sock = socket(AF_INET, SOCK_STREAM)
+    open_sock.connect((hostname, 21))
+    open_sock.recv_into(buffer)
+    status_code = int(buffer[:3].decode())
+    
+    
+
 def change_directory(path):
     status_code = ftp_command(command_sock, f"CWD {path}")
 def download_file(filename):
