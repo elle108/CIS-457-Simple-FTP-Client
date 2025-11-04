@@ -36,6 +36,8 @@ data_socket = data_receptionist.accept()
 
 def open_connection(hostname):
     # Create the socket
+    global open_sock
+    
     open_sock = socket(AF_INET, SOCK_STREAM)
     open_sock.connect((hostname, 21))
     open_sock.recv_into(buffer)
@@ -75,13 +77,13 @@ def list_directory():
     
 
 def change_directory(path):
-    status_code = ftp_command(command_sock, f"CWD {path}")
+    status_code = ftp_command(open_sock, f"CWD {path}")
 def download_file(filename):
-    status_code = ftp_command(command_sock, f"RETR {filename}")
+    status_code = ftp_command(open_sock, f"RETR {filename}")
 def upload_file(filename):
-    status_code = ftp_command(command_sock, f"STOR {filename}")
+    status_code = ftp_command(open_sock, f"STOR {filename}")
 def close_connection():
-    status_code = ftp_command(command_sock, "QUIT")
+    status_code = ftp_command(open_sock, "QUIT")
 
 # Print options to user
 def print_menu():
