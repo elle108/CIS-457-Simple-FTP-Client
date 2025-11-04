@@ -36,6 +36,22 @@ data_socket = data_receptionist.accept()
 
 def open_connection(hostname):
     status_code = ftp_command(command_sock, f"OPEN {hostname}")
+    if status_code == 220:
+        print("Connection established")
+        print("Enter username to authenticate")
+        username = input("Username: ")
+        authenticate(username, "")
+    if status_code == 331:
+        print("Username accepted, enter password")
+        password = input("Password: ")
+        authenticate(username, password)
+    elif status_code == 332:
+        print("Need account for login")
+    elif status_code == 421 | status_code == 500 | status_code == 501 | status_code == 530:
+        print("Error in connection or authentication")
+    else:
+        print("Unknown response from server")
+    
 def authenticate(username, password):
     status_code = ftp_command(command_sock, f"USER {username}")
     status_code = ftp_command(command_sock, f"PASS {password}")
