@@ -35,21 +35,20 @@ data_socket = data_receptionist.accept()
 # TODO: Implement functions to handle FTP commands
 
 def open_connection(hostname):
-    pass
+    status_code = ftp_command(command_sock, f"OPEN {hostname}")
 def authenticate(username, password):
-    pass
-def send_command(sock, command):
-    pass
+    status_code = ftp_command(command_sock, f"USER {username}")
+    status_code = ftp_command(command_sock, f"PASS {password}")
 def list_directory():
-    pass
+    status_code = ftp_command(command_sock, "LIST")
 def change_directory(path):
-    pass
+    status_code = ftp_command(command_sock, f"CWD {path}")
 def download_file(filename):
-    pass
+    status_code = ftp_command(command_sock, f"RETR {filename}")
 def upload_file(filename):
-    pass
+    status_code = ftp_command(command_sock, f"STOR {filename}")
 def close_connection():
-    pass
+    status_code = ftp_command(command_sock, "QUIT")
 
 # Print options to user
 def print_menu():
