@@ -136,7 +136,17 @@ def list_directory():
         data_receptionist.close()
       
 def change_directory(path):
+    if not open_sock:
+        print("No open connection to change directory")
+        return
+    
     status_code = ftp_command(open_sock, f"CWD {path}")
+    
+    if status_code == 250:
+        print(f"Changed directory to {path}")
+    else:
+        print(f"Failed to change directory to {path}")
+        
 def download_file(filename):
     status_code = ftp_command(open_sock, f"RETR {filename}")
 def upload_file(filename):
@@ -148,8 +158,8 @@ def close_connection():
 def print_menu():
     print("Simple FTP Client Commands:")
     print("open <host> - Connect to FTP server")
-    print("user <username> - Set username")
-    print("pass <password> - Set password")
+    # print("user <username> - Set username")
+    # print("pass <password> - Set password")
     print("dir - List directory")
     print("cd <path> - Change directory")
     print("get <file> - Download file")
@@ -172,12 +182,12 @@ def main():
             
             if cmd == "open":
                 open_connection(command[1])
-            elif cmd == "user":
-                username = command[1]
-                authenticate(username, password)
-            elif cmd == "pass":
-                password = command[1]
-                authenticate(username, password)
+            # elif cmd == "user":
+                # username = command[1]
+                # authenticate(username, password)
+            # elif cmd == "pass":
+                # password = command[1]
+                # authenticate(username, password)
             elif cmd == "dir":
                 list_directory()
             elif cmd == "cd":
