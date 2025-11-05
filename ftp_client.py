@@ -23,14 +23,6 @@ print(f"Server response {len} bytes: {buffer.decode()}")
 ftp_command(command_sock, "USER anonymous")
 ftp_command(command_sock, "QUIT")
 
-# Use the "receptionist" to accept incoming connections
-data_receptionist = socket(AF_INET, SOCK_STREAM)
-data_receptionist.bind(("0.0.0.0", 12345))
-data_receptionist.listen(1)         # max number of pending request
-
-# Use the "data_socket" to perform the actual byte transfer
-data_socket = data_receptionist.accept()
-
 # Skeleton Code for FTP Client Functionality
 # TODO: Implement functions to handle FTP commands
 
@@ -52,23 +44,42 @@ def open_connection(hostname):
         authenticate(username, "")
     
 def authenticate(username, password):
+    if not open_sock:
+        print("No open connection to authenticate")
+        return
+    
     status_code = ftp_command(command_sock, f"USER {username}")
+    
     if status_code == 331:
-        print("Username accepted, enter password")
-        password = input("Password: ")
-        authenticate(username, password)
+        if password == "":
+            print("Username accepted, enter password")
+            password = input("Password: ")
+        else:
+            print("Username accepted, using provided password")
+        status_code = ftp_command(command_sock, f"PASS {password}")
+        
+        if status_code == 230:
+            print("Authentication successful")
+            return
+        else:
+            print("Authentication failed")
+            return
+        
+    elif status_code == 230:
+        print("Authentication successful")
+        return
+    
     elif status_code == 332:
         print("Need account for login")
+        return
+    
     elif (status_code == 421 | status_code == 500 | status_code == 501 | status_code == 530):
         print("Error in connection or authentication")
+        return
+    
     else:
         print("Unknown response from server")
-
-    status_code = ftp_command(command_sock, f"PASS {password}")
-    if (status_code == 421 | status_code == 500 | status_code == 501 | status_code == 530):
-        print("Error in connection or authentication")
-    else:
-        print("Unknown response from server")
+        return
 
 def list_directory():
     ftp_command(open_sock, "TYPE A")
