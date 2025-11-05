@@ -81,6 +81,29 @@ def authenticate(username, password):
         print("Unknown response from server")
         return
 
+def data_reception():
+    data_receptionist = socket(AF_INET, SOCK_STREAM)
+    data_receptionist.bind(("0.0.0.0", 12345))
+    data_receptionist.listen(1) 
+
+    ip = open_sock.getsockname()[0]
+    port = open_sock.getsockname()[1]
+    
+    hi = port // 8
+    lo = port % 256
+    
+    split_ip = ip.split(".")
+    port_command = f"PORT {split_ip[0]}, {split_ip[1]}, {split_ip[2]}, {split_ip[3]}, {hi}, {lo}"
+    
+    status_code = ftp_command(open_sock, port_command)
+    
+    if status_code == 200:
+        return data_receptionist
+    else:
+        print("Failed to set up data connection")
+        data_receptionist.close()
+        return None
+
 def list_directory():
     ftp_command(open_sock, "TYPE A")
     status_code = ftp_command(open_sock, "LIST")
