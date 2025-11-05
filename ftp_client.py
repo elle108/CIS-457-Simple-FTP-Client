@@ -105,8 +105,36 @@ def data_reception():
         return None
 
 def list_directory():
+    if not open_sock:
+        print("No open connection to list directory")
+        return
+    
     ftp_command(open_sock, "TYPE A")
+    
+    data_receptionist = data_reception()
+    if not data_receptionist:
+        return
+    
     status_code = ftp_command(open_sock, "LIST")
+    
+    if status_code == 125 or status_code == 150:
+        data_sock, addr = data_receptionist.accept()
+        
+        listing = bytearray()
+        buff = bytearray(1024)
+        
+        while True:
+            nbytes = data_sock.recv_into(buff)
+            if nbytes == 0:
+                break
+            listing.extend(buff[:nbytes])
+        
+        print("Directory listing:")
+        print(listing.decode())
+        data_sock.close()
+        
+        data_receptionist.close()
+      
 def change_directory(path):
     status_code = ftp_command(open_sock, f"CWD {path}")
 def download_file(filename):
