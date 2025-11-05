@@ -40,8 +40,10 @@ def open_connection(hostname):
     
     open_sock = socket(AF_INET, SOCK_STREAM)
     open_sock.connect((hostname, 21))
-    open_sock.recv_into(buffer)
-    status_code = int(buffer[:3].decode())
+    buffer = bytearray(512)
+    nbytes = open_sock.recv_into(buffer)
+    response = buffer[:nbytes].decode()
+    status_code = int(response[:3])
 
     if status_code == 220:
         print("Connection established")
@@ -69,13 +71,8 @@ def authenticate(username, password):
         print("Unknown response from server")
 
 def list_directory():
-    open_sock = socket(AF_INET, SOCK_STREAM)
-    open_sock.connect((hostname, 21))
-    open_sock.recv_into(buffer)
-    status_code = int(buffer[:3].decode())
-    
-    
-
+    ftp_command(open_sock, "TYPE A")
+    status_code = ftp_command(open_sock, "LIST")
 def change_directory(path):
     status_code = ftp_command(open_sock, f"CWD {path}")
 def download_file(filename):
