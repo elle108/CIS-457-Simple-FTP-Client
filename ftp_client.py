@@ -1,4 +1,6 @@
 from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
 FTP_SERVER = "ftp.cs.brown.edu"
 
 buffer = bytearray(512)
@@ -10,6 +12,7 @@ def ftp_command(s, cmd):
     print(f"Sending command {cmd}")
     buff = bytearray(512)
     s.sendall((cmd + "\r\n").encode())
+    
     # TODO: Fix this part to parse multiline responses
     nbytes = s.recv_into(buff)
     print(f"{nbytes} bytes: {buff.decode()}")
@@ -27,7 +30,6 @@ ftp_command(command_sock, "QUIT")
 # TODO: Implement functions to handle FTP commands
 
 def open_connection(hostname):
-    # Create the socket
     global open_sock
     
     open_sock = socket(AF_INET, SOCK_STREAM)
@@ -83,13 +85,13 @@ def authenticate(username, password):
 
 def data_reception():
     data_receptionist = socket(AF_INET, SOCK_STREAM)
-    data_receptionist.bind(("0.0.0.0", 12345))
+    data_receptionist.bind(("0.0.0.0", 0))
     data_receptionist.listen(1) 
 
     ip = open_sock.getsockname()[0]
     port = open_sock.getsockname()[1]
     
-    hi = port // 8
+    hi = port // 256
     lo = port % 256
     
     split_ip = ip.split(".")
@@ -103,7 +105,28 @@ def data_reception():
         print("Failed to set up data connection")
         data_receptionist.close()
         return None
+    
+def handle_data_reception(data_receptionist, result):
+    data_sock, addr = data_receptionist.accept()
+    
+    received_data = bytearray()
+    buff = bytearray(1024)
+    
+    while True:
+        nbytes = data_sock.recv_into(buff)
+        if nbytes == 0:
+            break
+        received_data.extend(buff[:nbytes])
+        
+    result.append(received_data)
+    data_sock.close()
 
+def handle_data_sending(data_receptionist, data):
+    data_sock, addr = data_receptionist.accept()
+    data_sock.sendall(data)
+        
+    data_sock.close()
+    
 def list_directory():
     if not open_sock:
         print("No open connection to list directory")
@@ -115,25 +138,27 @@ def list_directory():
     if not data_receptionist:
         return
     
+    result = []
+    data_thread = threading.Thread(target=handle_data_reception, args=(data_receptionist, result))
+    data_thread.start()
+    
     status_code = ftp_command(open_sock, "LIST")
     
     if status_code == 125 or status_code == 150:
-        data_sock, addr = data_receptionist.accept()
+        data_thread.join()
         
-        listing = bytearray()
-        buff = bytearray(1024)
-        
-        while True:
-            nbytes = data_sock.recv_into(buff)
-            if nbytes == 0:
-                break
-            listing.extend(buff[:nbytes])
-        
-        print("Directory listing:")
-        print(listing.decode())
-        data_sock.close()
-        
-        data_receptionist.close()
+        if result:
+            listing = result[0]
+            print("Directory listing:")
+            print(listing.decode())
+            
+        buffer = bytearray(512)
+        nbytes = open_sock.recv_into(buffer)
+        print(f"Server response {nbytes} bytes: {buffer.decode()}")
+    else:
+        print("Failed to retrieve directory listing")
+    
+    data_receptionist.close()
       
 def change_directory(path):
     if not open_sock:
@@ -182,12 +207,6 @@ def main():
             
             if cmd == "open":
                 open_connection(command[1])
-            # elif cmd == "user":
-                # username = command[1]
-                # authenticate(username, password)
-            # elif cmd == "pass":
-                # password = command[1]
-                # authenticate(username, password)
             elif cmd == "dir":
                 list_directory()
             elif cmd == "cd":
