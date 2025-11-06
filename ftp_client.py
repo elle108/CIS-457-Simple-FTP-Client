@@ -73,16 +73,36 @@ def list_directory():
     open_sock.connect((hostname, 21))
     open_sock.recv_into(buffer)
     status_code = int(buffer[:3].decode())
+
+    if status_code == 220 or status_code == 331:
+        status_code = ftp_command(open_sock, f"TYPE A")
+        print(status_code = ftp_command(open_sock, f"LIST"))
     
     
 
 def change_directory(path):
     status_code = ftp_command(open_sock, f"CWD {path}")
-def download_file(filename):
-    status_code = ftp_command(open_sock, f"RETR {filename}")
-def upload_file(filename):
-    status_code = ftp_command(open_sock, f"STOR {filename}")
-def close_connection():
+
+def download_file(filename): #halie
+    open_sock = socket(AF_INET, SOCK_STREAM)
+    open_sock.connect((FTP_SERVER, 21))
+    open_sock.recv_into(buffer)
+    status_code = int(buffer[:3].decode())
+
+    if status_code == 220 or status_code == 331:
+        ftp_server_file = ftp_command(open_sock, f"RETR {filename}")
+
+    
+def upload_file(filename): #halie
+    open_sock = socket(AF_INET, SOCK_STREAM)
+    open_sock.connect((FTP_SERVER, 21))
+    open_sock.recv_into(buffer)
+    status_code = int(buffer[:3].decode())
+
+    if status_code == 220 or status_code == 331:
+        ftp_server_uploaded_file = ftp_command(open_sock, f"STOR {filename}")
+
+def close_connection(): #halie
     status_code = ftp_command(open_sock, "QUIT")
 
 # Print options to user
