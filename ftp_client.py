@@ -139,7 +139,7 @@ def list_directory():
         return
     
     result = []
-    data_thread = threading.Thread(target=handle_data_reception, args=(data_receptionist, result))
+    data_thread = Thread(target=handle_data_reception, args=(data_receptionist, result))
     data_thread.start()
     
     status_code = ftp_command(open_sock, "LIST")
@@ -183,8 +183,6 @@ def close_connection():
 def print_menu():
     print("Simple FTP Client Commands:")
     print("open <host> - Connect to FTP server")
-    # print("user <username> - Set username")
-    # print("pass <password> - Set password")
     print("dir - List directory")
     print("cd <path> - Change directory")
     print("get <file> - Download file")
