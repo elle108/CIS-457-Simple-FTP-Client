@@ -14,8 +14,6 @@ The client demonstrates:
 | User Command | FTP Command | Description |
 |---------------|--------------|--------------|
 | `open <host>` | N/A | Connect to an FTP server |
-| `user <username>` | `USER` | Send username |
-| `pass <password>` | `PASS` | Send password |
 | `dir` | `LIST` | List remote directory contents |
 | `cd <path>` | `CWD` | Change directory on remote host |
 | `get <file>` | `RETR` | Download file |
