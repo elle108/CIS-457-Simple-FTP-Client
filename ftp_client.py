@@ -162,9 +162,6 @@ def print_menu():
 def main():
     print_menu()
     
-    username = None
-    password = None
-    
     while True:
         try:
             command = input("ftp> ").strip().split()
