@@ -128,23 +128,79 @@ def handle_data_sending(data_receptionist, data):
     data_sock.close()
     
 def list_directory():
-    open_sock = socket(AF_INET, SOCK_STREAM)
-    open_sock.connect((hostname, 21))
-    open_sock.recv_into(buffer)
-    status_code = int(buffer[:3].decode())
+    if not open_sock:
+        print("No open connection to list directory")
+        return
     
+    ftp_command(open_sock, "TYPE A")
     
-
+    data_receptionist = data_reception()
+    if not data_receptionist:
+        return
+    
+    result = []
+    data_thread = Thread(target=handle_data_reception, args=(data_receptionist, result))
+    data_thread.start()
+    
+    status_code = ftp_command(open_sock, "LIST")
+    
+    if status_code == 125 or status_code == 150:
+        data_thread.join()
+        
+        if result:
+            listing = result[0]
+            print("Directory listing:")
+            print(listing.decode())
+            
+        buffer = bytearray(512)
+        nbytes = open_sock.recv_into(buffer)
+        print(f"Server response {nbytes} bytes: {buffer.decode()}")
+    else:
+        print("Failed to retrieve directory listing")
+    
+    data_receptionist.close()
+      
 def change_directory(path):
     if not open_sock:
         print("No open connection to change directory")
         return
     
     status_code = ftp_command(open_sock, f"CWD {path}")
+    
+    if status_code == 250:
+        print(f"Changed directory to {path}")
+    else:
+        print(f"Failed to change directory to {path}")
+        
 def download_file(filename):
+    
+    # TODO: Implement file download logic
+    # Setup data connection
+    data_receptionist = data_reception()
+    if not data_receptionist:
+        return
+    
+    # Start thread to receive data
+    result = []
+    data_thread = Thread(target=handle_data_reception, args=(data_receptionist, result))
+    data_thread.start()
+    
     status_code = ftp_command(open_sock, f"RETR {filename}")
+    
 def upload_file(filename):
+    
+    # TODO: Implement file upload logic
+    # Setup data connection
+    data_receptionist = data_reception()
+    if not data_receptionist:
+        return
+    
+    # Start thread to send data
+    data_thread = Thread(target=handle_data_sending, args=(data_receptionist, file_data))
+    data_thread.start()
+    
     status_code = ftp_command(open_sock, f"STOR {filename}")
+    
 def close_connection():
     status_code = ftp_command(open_sock, "QUIT")
 
