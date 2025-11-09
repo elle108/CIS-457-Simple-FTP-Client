@@ -16,6 +16,27 @@ def ftp_command(s, cmd):
     # TODO: Fix this part to parse multiline responses
     nbytes = s.recv_into(buff)
     print(f"{nbytes} bytes: {buff.decode()}")
+
+    for n in nbytes:
+        if n == "-":
+            remaining = [n + 1:]
+        for m in remaining:
+            if m == "-":
+                remainder = [m + 1]
+            for o in remainder:
+                code = remainder[o+1:3]
+        if code != nbytes[-1]:
+            for i in remainder:
+                if i == "-":
+                    remaining2 = [n + 1:]
+                    for j in remaining2:
+                        if j == "-":
+                            remainder2 = [m + 1]
+                        for k in remainder2:
+                            code2 = remainder[o+1:3]
+           
+    
+
   
 command_sock = socket(AF_INET, SOCK_STREAM)
 command_sock.connect((FTP_SERVER, 21))
@@ -141,12 +162,41 @@ def change_directory(path):
         return
     
     status_code = ftp_command(open_sock, f"CWD {path}")
-def download_file(filename):
+
+def download_file(filename): 
+    if not open_sock:
+        print("No open connection to change directory")
+        return
+    
     status_code = ftp_command(open_sock, f"RETR {filename}")
-def upload_file(filename):
+    
+    with open(filename, 'rb') as file:
+        file.read()
+
+    if status_code == 220 or status_code == 331:
+        ftp_server_file = ftp_command(open_sock, f"RETR {filename}")
+
+    
+def upload_file(filename): 
+    if not open_sock:
+        print("No open connection to change directory")
+        return
+    
     status_code = ftp_command(open_sock, f"STOR {filename}")
-def close_connection():
+
+    with open(filename, 'wb') as file:
+        file.write()
+
+    if status_code == 220 or status_code == 331:
+        ftp_server_uploaded_file = ftp_command(open_sock, f"STOR {filename}")
+
+def close_connection(): #halie
     status_code = ftp_command(open_sock, "QUIT")
+
+    command_sock.close()
+
+
+
 
 # Print options to user
 def print_menu():
@@ -161,6 +211,7 @@ def print_menu():
     
 def main():
     print_menu()
+
     
     while True:
         try:
