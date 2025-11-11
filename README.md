@@ -31,3 +31,16 @@ The client demonstrates:
 Run the program:
 ```bash
 python3 ftp_client.py
+```
+
+## Resources
+* Python Documentation
+    * https://docs.python.org/3/library/socket.html
+    * https://docs.python.org/3/howto/sockets.html
+* Stack Overflow
+    * https://stackoverflow.com/questions/822001/python-sockets-buffering
+    * https://stackoverflow.com/questions/74415707/how-to-send-multiple-commands-to-ftp-server-with-python-socket
+    * https://stackoverflow.com/questions/77636402/recv-function-doesnt-receive-all-the-data-sent
+*   Passive Mode
+    *   https://www.jscape.com/blog/active-v-s-passive-ftp-simplified
+* VSCode inline suggestions and built in Copilot for debugging and syntax help. 

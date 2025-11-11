@@ -1,94 +1,108 @@
 from socket import socket, AF_INET, SOCK_STREAM
-from threading import Thread
-
-FTP_SERVER = "ftp.cs.brown.edu"
-
-buffer = bytearray(512)
-
-# TODO: Send FTP command and recieve response while handling multiline messages"""
-# Starter Code
+import os
+import re
 
 def ftp_command(s, cmd):
+    # Send command
     print(f"Sending command {cmd}")
-    buff = bytearray(512)
     s.sendall((cmd + "\r\n").encode())
+
+    # Accumulate response bytes in case message is longer than one recv() call
+    resp_bytes = bytearray()
+    first_code = None
+    multiline = False
     
-    # TODO: Fix this part to parse multiline responses
-    nbytes = s.recv_into(buff)
-    print(f"{nbytes} bytes: {buff.decode()}")
+    # Loop to receive the complete response message
+    while True:
+        chunk = s.recv(1024)
+        if not chunk:
+            break
+        resp_bytes.extend(chunk)
+        resp_text = resp_bytes.decode('utf-8', errors='replace')
+        lines = resp_text.splitlines()
+        # Check if first line starts with 3 digits
+        if lines:
+            first_line = lines[0]
+            if len(first_line) >= 3 and first_line[:3].isdigit():
+                if first_code is None:
+                    first_code = first_line[:3]
+                    # Multiline if 4th character is '-'
+                    multiline = len(first_line) > 3 and first_line[3] == '-'
+                if not multiline:
+                    break
+                
+                # For multiline, look for final line with space after code
+                else:
+                    for line in lines[1:]:
+                        if line.startswith(first_code + ' '):
+                            done = True
+                            break
+                    else:
+                        done = False
+                    if done:
+                        break
 
-    for n in nbytes:
-        if n == "-":
-            remaining = [n + 1:]
-        for m in remaining:
-            if m == "-":
-                remainder = [m + 1]
-            for o in remainder:
-                code = remainder[o+1:3]
-        if code != nbytes[-1]:
-            for i in remainder:
-                if i == "-":
-                    remaining2 = [n + 1:]
-                    for j in remaining2:
-                        if j == "-":
-                            remainder2 = [m + 1]
-                        for k in remainder2:
-                            code2 = remainder[o+1:3]
-           
+    # Print response
+    text = resp_bytes.decode('utf-8', errors='replace')
+    print(f"{len(resp_bytes)} bytes:\n{text}")
     
-
-  
-command_sock = socket(AF_INET, SOCK_STREAM)
-command_sock.connect((FTP_SERVER, 21))
-my_ip, my_port = command_sock.getsockname()
-len = command_sock.recv_into(buffer)
-print(f"Server response {len} bytes: {buffer.decode()}")
-
-ftp_command(command_sock, "USER anonymous")
-ftp_command(command_sock, "QUIT")
-
-# Skeleton Code for FTP Client Functionality
-# TODO: Implement functions to handle FTP commands
+    # Return the numeric status code
+    try:
+        status = int(first_code) if first_code is not None else int(text[:3])
+    except Exception:
+        status = -1
+    return status
 
 def open_connection(hostname):
     global open_sock
     
-    open_sock = socket(AF_INET, SOCK_STREAM)
-    open_sock.connect((hostname, 21))
-    buffer = bytearray(512)
-    nbytes = open_sock.recv_into(buffer)
-    response = buffer[:nbytes].decode()
-    status_code = int(response[:3])
+    try:
+        # Create TCP socket
+        open_sock = socket(AF_INET, SOCK_STREAM)
+        # Connect to FTP server on port 21
+        open_sock.connect((hostname, 21))
+        # Receive welcome message from server
+        buffer = bytearray(2048)
+        nbytes = open_sock.recv_into(buffer)
+        response = buffer[:nbytes].decode('utf-8', errors='replace')
+        print(response)
+        
+        # Parse status code from welcome message
+        status_code = None
+        for line in response.splitlines():
+            if len(line) >= 3 and line[:3].isdigit():
+                status_code = int(line[:3])
+                break
 
-    if status_code == 220:
-        print("Connection established")
-        print("Enter username to authenticate")
-        username = input("Username: ")
-        authenticate(username, "")
+        # Status 220 means server is ready
+        if status_code == 220:
+            print("Connection established")
+            print("Enter username to authenticate")
+            username = input("Username: ")
+            authenticate(username, "")
+    except Exception as e:
+        print("Error connecting to server")
+        open_sock = None
+        return
     
 def authenticate(username, password):
+    global open_sock
     if not open_sock:
         print("No open connection to authenticate")
         return
     
-    status_code = ftp_command(command_sock, f"USER {username}")
+    # Send USER command with username
+    status_code = ftp_command(open_sock, f"USER {username}")
     
+    # If server needs password, prompt and send PASS command
     if status_code == 331:
-        if password == "":
-            print("Username accepted, enter password")
+        if not password:
+            print("Enter password")
             password = input("Password: ")
-        else:
-            print("Username accepted, using provided password")
-        status_code = ftp_command(command_sock, f"PASS {password}")
-        
-        if status_code == 230:
-            print("Authentication successful")
-            return
-        else:
-            print("Authentication failed")
-            return
-        
-    elif status_code == 230:
+        status_code = ftp_command(open_sock, f"PASS {password}")
+    
+    # Check authentication result
+    if status_code == 230:
         print("Authentication successful")
         return
     
@@ -96,7 +110,7 @@ def authenticate(username, password):
         print("Need account for login")
         return
     
-    elif (status_code == 421 | status_code == 500 | status_code == 501 | status_code == 530):
+    elif (status_code == 421 or status_code == 500 or status_code == 501 or status_code == 530):
         print("Error in connection or authentication")
         return
     
@@ -105,98 +119,189 @@ def authenticate(username, password):
         return
 
 def data_reception():
-    data_receptionist = socket(AF_INET, SOCK_STREAM)
-    data_receptionist.bind(("0.0.0.0", 0))
-    data_receptionist.listen(1) 
+    """Set up a passive data connection (emailed Prof regarding this)"""
+    global open_sock
 
-    ip = open_sock.getsockname()[0]
-    port = open_sock.getsockname()[1]
-    
-    hi = port // 256
-    lo = port % 256
-    
-    split_ip = ip.split(".")
-    port_command = f"PORT {split_ip[0]}, {split_ip[1]}, {split_ip[2]}, {split_ip[3]}, {hi}, {lo}"
-    
-    status_code = ftp_command(open_sock, port_command)
-    
-    if status_code == 200:
-        return data_receptionist
-    else:
-        print("Failed to set up data connection")
-        data_receptionist.close()
+    # Send PASV command
+    print("Sending command PASV")
+    open_sock.sendall(b"PASV\r\n")
+
+    # Receive response with IP and port information
+    resp = open_sock.recv(1024).decode('utf-8', errors='replace')
+    print(f"{len(resp)} bytes:\n{resp}")
+
+    # Check for successful passive mode
+    if not resp.startswith("227"):
+        print("Failed to enter passive mode")
         return None
-    
-def handle_data_reception(data_receptionist, result):
-    data_sock, addr = data_receptionist.accept()
-    
-    received_data = bytearray()
-    buff = bytearray(1024)
-    
-    while True:
-        nbytes = data_sock.recv_into(buff)
-        if nbytes == 0:
-            break
-        received_data.extend(buff[:nbytes])
-        
-    result.append(received_data)
-    data_sock.close()
 
-def handle_data_sending(data_receptionist, data):
-    data_sock, addr = data_receptionist.accept()
-    data_sock.sendall(data)
-        
-    data_sock.close()
+    # Extract the IP and port
+    match = re.search(r'\((\d+,\d+,\d+,\d+,\d+,\d+)\)', resp)
+    if not match:
+        print("Failed to parse PASV response")
+        return None
+
+    # Parse the values
+    parts = match.group(1).split(',')
+    ip = '.'.join(parts[:4])
+    port = (int(parts[4]) << 8) + int(parts[5])
+
+    # Create new socket and connect to port
+    data_sock = socket(AF_INET, SOCK_STREAM)
+    data_sock.connect((ip, port))
+    return data_sock
     
 def list_directory():
-    open_sock = socket(AF_INET, SOCK_STREAM)
-    open_sock.connect((hostname, 21))
-    open_sock.recv_into(buffer)
-    status_code = int(buffer[:3].decode())
-    
-    
+    global open_sock
+    if not open_sock:
+        print("Not connected")
+        return
 
+    # Set ASCII mode
+    ftp_command(open_sock, "TYPE A")
+    
+    # Data connection
+    data_sock = data_reception()
+    if not data_sock:
+        return
+
+    # Send LIST command
+    status_code = ftp_command(open_sock, "LIST")
+    
+    # Receive directory listing data over data connection
+    if status_code in [125, 150]:
+        received_data = bytearray()
+        while True:
+            chunk = data_sock.recv(1024)
+            if not chunk:
+                break
+            received_data.extend(chunk)
+        print(received_data.decode('utf-8', errors='replace'))
+
+        # Close data connection 
+        data_sock.close()
+
+        # Receive final response from control connection
+        buff = bytearray(512)
+        nbytes = open_sock.recv_into(buff)
+        if nbytes > 0:
+            print(buff[:nbytes].decode('utf-8', errors='replace'))
+    else:
+        print("Failed to list directory")
+    
 def change_directory(path):
+    global open_sock
     if not open_sock:
-        print("No open connection to change directory")
+        print("Not connected")
         return
     
+    # Send CWD command
     status_code = ftp_command(open_sock, f"CWD {path}")
-
-def download_file(filename): 
-    if not open_sock:
-        print("No open connection to change directory")
-        return
     
+    # Status 250 success
+    if status_code == 250:
+        print(f"Changed to {path}")
+    else:
+        print(f"Failed to change directory")
+
+def download_file(filename):
+    global open_sock
+    if not open_sock:
+        print("Not connected")
+        return
+
+    # Set binary mode
+    ftp_command(open_sock, "TYPE I")
+
+    # Data connection
+    data_sock = data_reception()
+    if not data_sock:
+        return
+
+    # Send RETR command to retrieve file
     status_code = ftp_command(open_sock, f"RETR {filename}")
-    
-    with open(filename, 'rb') as file:
-        file.read()
 
-    if status_code == 220 or status_code == 331:
-        ftp_server_file = ftp_command(open_sock, f"RETR {filename}")
+    # Receive file data over data connection
+    if status_code in [125, 150]:
+        received_data = bytearray()
+        while True:
+            data_chunk = data_sock.recv(4096)
+            if not data_chunk:
+                break
+            received_data.extend(data_chunk)
 
-    
-def upload_file(filename): 
+        # Close data connection
+        data_sock.close()
+
+        # Write data to local file
+        with open(filename, 'wb') as f:
+            f.write(received_data)
+        print(f"Downloaded {filename} ({len(received_data)} bytes)")
+
+        # Receive final response
+        buff = bytearray(512)
+        nbytes = open_sock.recv_into(buff)
+        if nbytes > 0:
+            print(buff[:nbytes].decode('utf-8', errors='replace'))
+    else:
+        print(f"Failed to download {filename}")
+        data_sock.close()
+
+def upload_file(filename):
+    global open_sock
     if not open_sock:
-        print("No open connection to change directory")
+        print("Not connected")
         return
     
+    # Check if local file exists
+    if not os.path.exists(filename):
+        print(f"Local file {filename} not found")
+        return
+    
+    # Read local file
+    with open(filename, 'rb') as f:
+        file_data = f.read()
+
+    # Set binary mode
+    ftp_command(open_sock, "TYPE I")
+    
+    # Data connection
+    data_sock = data_reception()
+    if not data_sock:
+        return
+    
+    # Send STOR command 
     status_code = ftp_command(open_sock, f"STOR {filename}")
 
-    with open(filename, 'wb') as file:
-        file.write()
+    # Send file data over data connection
+    if status_code in [125, 150]:
+        data_sock.sendall(file_data)
+        data_sock.close()
+        print(f"Uploaded {filename} ({len(file_data)} bytes)")
 
-    if status_code == 220 or status_code == 331:
-        ftp_server_uploaded_file = ftp_command(open_sock, f"STOR {filename}")
+        # Receive final response
+        buff = bytearray(512)
+        nbytes = open_sock.recv_into(buff)
+        if nbytes > 0:
+            print(buff[:nbytes].decode('utf-8', errors='replace'))
+    else:
+        print(f"Failed to upload {filename}")
+        data_sock.close()
 
 def close_connection(): #halie
-    status_code = ftp_command(open_sock, "QUIT")
-
-    command_sock.close()
-
-
-
+    global open_sock
+    if not open_sock:
+        print("No connection to close")
+        return
+    
+    # Close the socket
+    try:
+        open_sock.close()
+        open_sock = None
+        print("Connection closed")
+    except Exception as e:
+        print("Error closing connection")
+        open_sock = None
 
 # Print options to user
 def print_menu():
@@ -212,32 +317,57 @@ def print_menu():
 def main():
     print_menu()
 
-    
     while True:
         try:
+            # Read user input
             command = input("ftp> ").strip().split()
             if not command:
                 continue
             cmd = command[0].lower()
+            input_arg = command[1] if len(command) > 1 else None
             
+            # Process user commands
             if cmd == "open":
-                open_connection(command[1])
+                if input_arg:
+                    open_connection(input_arg)
+                else:
+                    print("Usage: open <hostname>")
+                    
             elif cmd == "dir":
                 list_directory()
+                
             elif cmd == "cd":
-                change_directory(command[1])
+                if input_arg:
+                    change_directory(input_arg)
+                else:
+                    print("Usage: cd <path>")
+                    
             elif cmd == "get":
-                download_file(command[1])
+                if input_arg:
+                    download_file(input_arg)
+                else:
+                    print("Usage: get <filename>")
+                    
             elif cmd == "put":
-                upload_file(command[1])
+                if input_arg:
+                    upload_file(input_arg)
+                else:
+                    print("Usage: put <filename>")
+                    
             elif cmd == "close":
                 close_connection()
+                
             elif cmd == "quit":
+                if open_sock:
+                    close_connection()
+                print("Goodbye!")
                 break
+                
             else:
-                print("Unknown command")  
+                print(f"Unknown command: {cmd}")
+                
         except Exception as e:
-            print(f"Error: {e}")  
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
